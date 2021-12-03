@@ -104,7 +104,7 @@ Total number of ASVs across sites is 1587 - totaling to 8.8% of all ASVs recover
 
 ## Bar plots of metazoa: Phylum & Class
 
-```{r, fig.height=12, fig.width=14}
+```{r, fig.height=8, fig.width=11}
 # head(asv_wtax)
 metazoa_all_barplot <- asv_wtax %>% 
   filter(Supergroup == "Opisthokonta") %>%
@@ -127,7 +127,7 @@ ggplotly(metazoa_all_barplot)
 _Observations_: At the phylum level, metazoa made up the most number of 18S sequences recovered. This was followed by Choanoflagellates in the background and plume environments, and then by fungi in the vent habitats.
 
 ### to the class level
-```{r, fig.height=12, fig.width=14}
+```{r, fig.height=8, fig.width=11}
 # head(asv_wtax)
 metazoa_all_barplot_class <- asv_wtax %>% 
   filter(Supergroup == "Opisthokonta") %>%
@@ -151,7 +151,7 @@ ggplotly(metazoa_all_barplot_class)
 _Observations_: There's a shift in the community from the background and plume habitats having higher relative abundances of Ctenophora and Cnidaria sequences and Chanoflagellates (especially in the plume!), to the diffuse flow fluid having a higher relativea bundance of Annelida, Mollusca, and Arthropoda. (things that settle?)
 
 ### closer look at metazoa only
-```{r, fig.height=12, fig.width=14}
+```{r, fig.height=8, fig.width=11}
 # head(asv_wtax)
 metazoa_only_bar <- asv_wtax %>% 
   filter(Phylum == "Metazoa") %>%
@@ -173,7 +173,7 @@ ggplotly(metazoa_only_bar)
 ```
 
 
-```{r, fig.height=12, fig.width=14}
+```{r, fig.height=8, fig.width=11}
 # head(asv_wtax)
 metazoa_only_Order_bar <- asv_wtax %>% 
   filter(Phylum == "Metazoa") %>%

@@ -1,0 +1,210 @@
+---
+title: "Metazoa-hydrothermal-vent"
+author: "Sarah Hu"
+date: "12/3/2021"
+output: 
+  html_document:
+    number_sections: true
+    theme: spacelab
+    highlight: kate
+    collapsed: false
+    toc: true
+    toc_depth: 4
+    toc_float: true
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy = FALSE)
+```
+
+# Background
+
+# Set up in R
+```{r}
+library(tidyverse); library(patchwork)
+library(gt); library(viridis)
+library(plotly)
+```
+
+## Import exisiting data
+```{r, eval=FALSE, message=FALSE}
+merged_tax <- read_delim("../microeuks_deepbiosphere_datamine/microeuk-amplicon-survey/data-input/taxonomy.tsv", delim = "\t")
+merged_asv <- read_delim("../microeuks_deepbiosphere_datamine/microeuk-amplicon-survey/data-input/microeuk-merged-asv-table.tsv", delim = "\t", skip = 1)
+metadata <- read.delim("../microeuks_deepbiosphere_datamine/microeuk-amplicon-survey/data-input/samplelist-metadata.txt")
+
+```
+```{r, eval=FALSE}
+asv_wtax <- merged_asv %>%
+  select(FeatureID = '#OTU ID', everything()) %>%
+  pivot_longer(cols = !FeatureID,
+               names_to = "SAMPLE", values_to = "value") %>%
+  left_join(merged_tax, by = c("FeatureID" = "Feature ID")) %>%
+  left_join(metadata) %>%
+  filter(!grepl("Siders_", SAMPLE)) %>% 
+  filter(SAMPLETYPE != "Incubation") %>% 
+  mutate(DATASET = case_when(
+    grepl("_GR_", SAMPLE) ~ "GR",
+    grepl("Gorda", SAMPLE) ~ "GR",
+    grepl("_MCR_", SAMPLE) ~ "MCR",
+    grepl("Axial", SAMPLE) ~ "Axial",
+  TRUE ~ "Control or blank")) %>%
+    separate(Taxon, c("Domain", "Supergroup",
+                  "Phylum", "Class", "Order",
+                  "Family", "Genus", "Species"), sep = ";", remove = FALSE) %>% 
+  unite(SAMPLENAME, SITE, SAMPLETYPE, YEAR, VENT, SAMPLEID, sep = " ", remove = FALSE)
+```
+Save to this directory
+```{r, eval=FALSE}
+save(asv_wtax, metadata, file = "data-input/ASVs-18S-survey-03122021.RData")
+```
+
+# Broad overview of metazoa
+```{r}
+load("data-input/ASVs-18S-survey-03122021.RData", verbose = TRUE)
+```
+```{r}
+# unique(asv_wtax$Supergroup)
+# colnames(asv_wtax)
+list_of_metazoa <- asv_wtax %>% 
+  filter(Supergroup == "Opisthokonta") %>% 
+  select(Domain:Species) %>% 
+  distinct()
+dim(list_of_metazoa)
+
+```
+## Table of all taxa
+Output table of all unique metazoan names in dataset. 
+```{r}
+list_of_metazoa %>% 
+  select(-Domain, -Supergroup) %>% 
+  arrange(Phylum, Class, Order) %>% 
+  gt(
+    rowname_col = c("Phylum")
+  ) %>% 
+  tab_header(title = "Opisthokonta by Phylum")
+```
+
+## Stats on sequence data 
+```{r}
+# Number of ASVs
+tmp <- asv_wtax %>% 
+  filter(Supergroup == "Opisthokonta")
+100*(length(unique(tmp$FeatureID))/length(unique(asv_wtax$FeatureID)))
+
+# Number of sequences
+100*(sum(tmp$value)/sum(asv_wtax$value))
+```
+Total number of ASVs across sites is 1587 - totaling to 8.8% of all ASVs recovered and 27% of all sequences.
+
+## Bar plots of metazoa: Phylum & Class
+
+```{r, fig.height=12, fig.width=14}
+# head(asv_wtax)
+metazoa_all_barplot <- asv_wtax %>% 
+  filter(Supergroup == "Opisthokonta") %>%
+  filter(Sample_or_Control == "Sample") %>% 
+  # unite(SAMPLETYPE_2, SITE, SAMPLETYPE, sep = " ") %>% 
+  group_by(SITE, SAMPLETYPE, Phylum) %>% 
+  summarise(SUM_CLASS = sum(value)) %>% 
+  # unite(PhylumClass, Phylum, Class, sep = "-") %>% 
+  ggplot(aes(x = SITE, y = SUM_CLASS, fill = Phylum)) +
+    geom_bar(stat = "identity", position = "fill", color = "white", stroke = 0.1) +
+    theme_classic() +
+  coord_flip() +
+  facet_grid(SAMPLETYPE ~. , space = "free") +
+  scale_fill_viridis(discrete = TRUE, option = "turbo") +
+  labs(x = "", y= "Sequence relative abundance") +
+  theme(legend.position = "bottom")
+
+ggplotly(metazoa_all_barplot)
+```
+_Observations_: At the phylum level, metazoa made up the most number of 18S sequences recovered. This was followed by Choanoflagellates in the background and plume environments, and then by fungi in the vent habitats.
+
+### to the class level
+```{r, fig.height=12, fig.width=14}
+# head(asv_wtax)
+metazoa_all_barplot_class <- asv_wtax %>% 
+  filter(Supergroup == "Opisthokonta") %>%
+  filter(Sample_or_Control == "Sample") %>% 
+  # unite(SAMPLETYPE_2, SITE, SAMPLETYPE, sep = " ") %>% 
+  group_by(SITE, SAMPLETYPE, Phylum, Class) %>% 
+  summarise(SUM_CLASS = sum(value)) %>% 
+  unite(PhylumClass, Phylum, Class, sep = "-") %>% 
+  ggplot(aes(x = SITE, y = SUM_CLASS, fill = PhylumClass)) +
+    geom_bar(stat = "identity", position = "fill", color = "white", stroke = 0.1) +
+    theme_classic() +
+  facet_grid(SAMPLETYPE ~. , space = "free") +
+  coord_flip() +
+  scale_fill_viridis(discrete = TRUE, option = "inferno") +
+  labs(x = "", y= "Sequence relative abundance") +
+  theme(legend.position = "bottom")
+
+ggplotly(metazoa_all_barplot_class)
+```
+
+_Observations_: There's a shift in the community from the background and plume habitats having higher relative abundances of Ctenophora and Cnidaria sequences and Chanoflagellates (especially in the plume!), to the diffuse flow fluid having a higher relativea bundance of Annelida, Mollusca, and Arthropoda. (things that settle?)
+
+### closer look at metazoa only
+```{r, fig.height=12, fig.width=14}
+# head(asv_wtax)
+metazoa_only_bar <- asv_wtax %>% 
+  filter(Phylum == "Metazoa") %>%
+  filter(Sample_or_Control == "Sample") %>% 
+  # unite(SAMPLETYPE_2, SITE, SAMPLETYPE, sep = " ", remove = FALSE) %>% 
+  group_by(SAMPLETYPE, SITE, Class) %>% 
+  summarise(SUM_CLASS = sum(value)) %>% 
+  # unite(PhylumClass, Phylum, Class, sep = "-") %>% 
+  ggplot(aes(x = SITE, y = SUM_CLASS, fill = Class)) +
+    geom_bar(stat = "identity", position = "fill", color = "white", stroke = 0.1) +
+    theme_classic() +
+  facet_grid(SAMPLETYPE ~. , space = "free") +
+  coord_flip() +
+  scale_fill_viridis(discrete = TRUE, option = "rocket") +
+  labs(x = "", y= "Sequence relative abundance") +
+  theme(legend.position = "bottom")
+
+ggplotly(metazoa_only_bar)
+```
+
+
+```{r, fig.height=12, fig.width=14}
+# head(asv_wtax)
+metazoa_only_Order_bar <- asv_wtax %>% 
+  filter(Phylum == "Metazoa") %>%
+  filter(Sample_or_Control == "Sample") %>% 
+  # unite(SAMPLETYPE_2, SITE, SAMPLETYPE, sep = " ", remove = FALSE) %>% 
+  group_by(SAMPLETYPE, SITE, Class, Order) %>% 
+  summarise(SUM_CLASS = sum(value)) %>% 
+  unite(ClassOrder, Class, Order, sep = "-") %>%
+  ggplot(aes(x = SITE, y = SUM_CLASS, fill = ClassOrder)) +
+    geom_bar(stat = "identity", position = "fill", color = "white", stroke = 0.1) +
+    theme_classic() +
+  facet_grid(SAMPLETYPE ~. , space = "free") +
+  coord_flip() +
+  scale_fill_viridis(discrete = TRUE, option = "rocket") +
+  labs(x = "", y= "Sequence relative abundance") +
+  theme(legend.position = "bottom")
+
+ggplotly(metazoa_only_Order_bar)
+```
+_Observations_: When we go to the 'Order' level for metazoa, we see that many of the taxa names end with **_X**. This means the level is unknown. In the case of the PR2 database, it is still unclear if this means it is because that level is mis-placed, or they didn't curate the rest of the sequence?
+
+
+I used V4 primers. We can explore the PR2 database more here: https://pr2database.github.io/pr2database/articles/pr2database.html
+```{r}
+# install.packages(devtools)
+# devtools::install_github("pr2database/pr2database")
+```
+
+
+# Next steps?
+* Sort out database issue
+* Is this biogeography helpful?
+* Closer look at substrates at Gorda Ridge (larger project)
+* Paired samples with other amplicons?
